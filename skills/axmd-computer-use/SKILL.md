@@ -11,25 +11,34 @@ description: >-
 
 # axmd computer use
 
-`scripts/axmd.swift` is a single-file CLI. It prints an app's AX tree as one
-line per element and acts on elements by index. Full page ≈3k tokens; grep,
-diff or click ≈10–100 tokens.
+`scripts/axmd.swift` walks a macOS app's `AXUIElement` tree via batched IPC and
+prints one line per interactive element, acting on elements by integer index.
+Full page ≈2.7k tokens; `--grep`, `--diff`, or `--press` ≈10–75 tokens.
 
 ## Setup
 
-1. `swiftc -O scripts/axmd.swift -o scripts/axmd`
-2. Verify: `scripts/axmd Finder` prints lines ending in a `(shown/visited)` footer.
-3. Exit code 1 → the process running the agent's shell (terminal, IDE, agent
-   app) lacks Accessibility permission. Ask the user to enable it in
-   System Settings › Privacy & Security › Accessibility. Nothing else is needed.
+1. Build: `make` (at repo root) or `swiftc -O scripts/axmd.swift -o scripts/axmd`
+   (or `make universal` for a stripped `arm64 + x86_64` fat binary).
+2. Smoke check: `scripts/axmd --help` (exits `0`, prints usage).
+3. Live check: `scripts/axmd Finder` prints indexed lines ending in `(shown/visited)`.
+4. Exit codes:
+   - `0` — ok
+   - `1` — host process lacks Accessibility permission (enable the terminal/IDE
+     in System Settings › Privacy & Security › Accessibility)
+   - `2` — missing `<app>` argument
+   - `3` — app not found
+   - `4` — no matching window
+   - `5` — `--root` role/subrole not found in window
+   - `6` — `<idx>` out of range
+   - `7` — `AXPress` / `AXValue` action failed
 
 ## Output
 
 `<idx> <role> "label" =value [flags] <url>`
 
 Roles: `b` button · `l` link · `t` field · `c` checkbox · `r` radio · `p` popup ·
-`m` menu item · `h` heading · `x` text · `tab` · `dlg`.
-Flags: `sel foc off open on mixed`.
+`m` menu item · `s` slider · `tab` · `h` heading · `x` text · `dlg` dialog.
+Flags: `sel` · `foc` · `off` · `open` · `on` · `mixed`.
 
 ## Commands
 
@@ -39,38 +48,51 @@ Flags: `sel foc off open on mixed`.
 | Interactive elements + headings | `axmd <app> [--urls]` |
 | Read page/content text | `axmd <app> --text --root webarea` |
 | Changes since last snapshot | `axmd <app> --diff` |
-| Click (no mouse) | `axmd <app> --press <idx>` |
-| Set a field | `axmd <app> --type <idx> "<text>"` |
-| Scope | `--root dialog\|webarea\|tabgroup\|toolbar`, `--window "<title>"` |
+| Click headless (no cursor move) | `axmd <app> --press <idx>` |
+| Set a text field | `axmd <app> --type <idx> "<text>"` |
+| Scope subtree | `--root dialog\|webarea\|tabgroup\|toolbar`, `--window "<title>"` |
 
-`<app>` = app name, bundle id or pid. Indices are valid only for the same
-app/root/flags; resolve with `--grep` immediately before `--press`.
+`<app>` accepts app name, bundle ID, or PID. Indices apply to the exact
+`app + root + window + text` scope that produced them; resolve with `--grep`
+immediately before `--press`.
 
 ## Token discipline
 
-The CLI is free. Cost is the agent context re-sent every turn; provider prompt
-caching covers only the unchanged prefix.
+The CLI costs zero tokens; re-sending agent context every turn is what costs
+money.
 
-1. Loops run as **one** shell process printing **one line per iteration**.
-   Template: [loop.sh](scripts/loop.sh)
+1. Run repetitive UI loops as **one** shell process printing **one summary line
+   per iteration** to `stdout`. Template: [loop.sh](scripts/loop.sh)
    (`APP=Safari REFRESH="Reload" ACTION="Open" N=3 scripts/loop.sh`).
-2. Full dumps go to a file; inspect with `grep`, never paste into chat.
-3. Prefer `--grep` → `--diff` → `--root` → full dump.
-4. Token estimate when asked: bytes ÷ 4.
+2. Redirect full snapshots to a log file and query with `grep`; never dump raw
+   trees into chat context.
+3. Prefer `--grep` → `--diff` → `--root` → full snapshot.
+4. Estimate tokens as `bytes ÷ 4`.
 
 ## Pitfalls
 
-- One loop at a time. `loop.sh` holds a lock; don't start a second agent task.
-- Abort when `--grep` finds nothing; never `--press` an empty index.
-- Wait for content (poll for a `h "` line), not a fixed sleep.
-- Bring the target tab/window to front before `--root webarea`, or the wrong
-  tree is read.
-- Web modals often aren't exposed as `dialog`; use `--grep`.
-- `--urls` exposes link targets, often removing the need to click.
-- Chromium: first call enables `AXManualAccessibility`; rerun if content is empty.
+- **Single loop instance:** `loop.sh` uses a PID-checked lock (`$TMPDIR/axmd-loop.lock`)
+  that auto-recovers from stale `SIGKILL` locks while blocking concurrent runs.
+- **Abort on missing element:** If `--grep` returns empty or `--press` exits `7`,
+  stop immediately.
+- **Poll for content:** Wait for a `h "` heading line to appear rather than
+  using a fixed `sleep`.
+- **Foreground the target tab:** Activate the target browser tab before running
+  `--root webarea` so `axmd` reads the right document.
+- **Web modals:** Many web modals do not expose `AXDialog`; locate buttons with
+  `--grep` instead of `--root dialog`.
+- **Chromium hydration:** `axmd` enables `AXManualAccessibility` automatically
+  on first contact and skips the 150ms hydration sleep on subsequent calls.
 
-## Verify
+## Release & CI pipeline
 
-After every `--press`, confirm the expected change with `--grep` or `--diff`.
-For browsers, `osascript -e 'tell application "Safari" to get URL of current tab of window 1'`
-is a cheap ground truth.
+When modifying `axmd.swift` or the skill in the repository:
+
+1. Keep root `axmd.swift` and `skills/axmd-computer-use/scripts/axmd.swift`
+   identical (`make test` enforces `cmp -s` sync, `--help` smoke check, and
+   `zsh -n` syntax validation).
+2. Open a branch and PR; `.github/workflows/ci.yml` compiles the universal
+   `arm64 + x86_64` binary via `lipo` and runs `make test` on `macos-14`.
+3. Tagging `v*` (e.g. `git tag -a v0.1.1 -m "v0.1.1" && git push origin v0.1.1`)
+   packages `axmd-<version>-macos-universal.tar.gz` (universal binary + `skills/`)
+   and its `.sha256` digest into a GitHub Release automatically.
