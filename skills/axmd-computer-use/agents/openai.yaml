@@ -1,0 +1,5 @@
+interface:
+  display_name: "axmd Computer Use"
+  short_description: "Token-minimal macOS AX-tree snapshots & headless clicks"
+  brand_color: "#38BDF8"
+  default_prompt: "Use $axmd-computer-use to inspect and drive the target macOS app via the Accessibility tree without screenshots."
