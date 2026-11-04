@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 260" width="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#818cf8"/>
+    </linearGradient>
+    <style>
+      .title { font: 700 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace; fill: #f8fafc; letter-spacing: -0.5px; }
+      .sub { font: 400 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #94a3b8; }
+      .pill { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #38bdf8; }
+      .code { font: 500 13px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #e2e8f0; }
+      .dim { fill: #64748b; }
+      .grn { fill: #4ade80; }
+      .ylw { fill: #facc15; }
+      .blu { fill: #38bdf8; }
+    </style>
+  </defs>
+  <rect width="920" height="260" rx="14" fill="url(#bg)" stroke="#1e293b" stroke-width="2"/>
+  <g transform="translate(36, 44)">
+    <rect x="0" y="0" width="138" height="24" rx="12" fill="#0f172a" stroke="#38bdf8" stroke-width="1"/>
+    <text x="14" y="16" class="pill">MACOS AX ENGINE</text>
+    <text x="0" y="64" class="title">axmd</text>
+    <text x="0" y="92" class="sub">Zero-screenshot macOS computer use via batched</text>
+    <text x="0" y="114" class="sub">AXUIElement IPC, semantic line diffs &amp; headless AXPress.</text>
+    <g transform="translate(0, 140)">
+      <rect x="0" y="0" width="118" height="36" rx="8" fill="#1e293b"/>
+      <text x="14" y="23" class="code"><tspan class="grn">-83%</tspan> tokens</text>
+      <rect x="128" y="0" width="132" height="36" rx="8" fill="#1e293b"/>
+      <text x="142" y="23" class="code"><tspan class="blu">1 IPC</tspan> / node</text>
+      <rect x="270" y="0" width="142" height="36" rx="8" fill="#1e293b"/>
+      <text x="284" y="23" class="code"><tspan class="ylw">~0 tok</tspan> --diff</text>
+    </g>
+  </g>
+  <g transform="translate(470, 28)">
+    <rect width="418" height="204" rx="10" fill="#090d16" stroke="#1e293b" stroke-width="1.5"/>
+    <circle cx="18" cy="16" r="5" fill="#ef4444"/>
+    <circle cx="34" cy="16" r="5" fill="#f59e0b"/>
+    <circle cx="50" cy="16" r="5" fill="#10b981"/>
+    <text x="165" y="20" class="code dim">axmd — zsh</text>
+    <line x1="0" y1="32" x2="418" y2="32" stroke="#1e293b"/>
+    <text x="16" y="56" class="code"><tspan class="blu">$</tspan> axmd Safari --urls --grep "Sign in"</text>
+    <text x="16" y="76" class="code"><tspan class="ylw">12</tspan> b "Sign in" &lt;/login&gt;</text>
+    <text x="16" y="102" class="code"><tspan class="blu">$</tspan> axmd Safari --press 12</text>
+    <text x="16" y="122" class="code"><tspan class="grn">pressed 12:</tspan> b "Sign in"</text>
+    <text x="16" y="148" class="code"><tspan class="blu">$</tspan> axmd Safari --diff</text>
+    <text x="16" y="168" class="code"><tspan class="grn">+ 4 t "Email" [foc]</tspan></text>
+    <text x="16" y="188" class="code dim">(1+ 0- / 18) · 840ms · 0 mouse movement</text>
+  </g>
+</svg>
