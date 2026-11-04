@@ -21,6 +21,8 @@ install: axmd
 	install -m 0755 axmd $(PREFIX)/bin/axmd
 
 test: axmd
+	./axmd --help 2>&1 | grep -q "usage: axmd"
+	cmp -s axmd.swift skills/axmd-computer-use/scripts/axmd.swift
 	zsh -n skills/axmd-computer-use/scripts/loop.sh
 
 clean:

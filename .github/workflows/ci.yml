@@ -1,0 +1,46 @@
+name: CI & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build & Test
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Universal Binary & Run Tests
+        run: |
+          make universal
+          make test
+          file axmd
+
+      - name: Package Release Archive
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          mkdir -p dist/axmd-${VERSION}-macos-universal
+          cp axmd README.md LICENSE dist/axmd-${VERSION}-macos-universal/
+          cp -R skills dist/axmd-${VERSION}-macos-universal/
+          tar -C dist -czf axmd-${VERSION}-macos-universal.tar.gz axmd-${VERSION}-macos-universal
+          shasum -a 256 axmd-${VERSION}-macos-universal.tar.gz > axmd-${VERSION}-macos-universal.tar.gz.sha256
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            axmd-*-macos-universal.tar.gz
+            axmd-*-macos-universal.tar.gz.sha256
