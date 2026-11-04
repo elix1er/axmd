@@ -3,7 +3,7 @@
 # Prints one summary line per iteration to stdout; full snapshots go to $LOG.
 #   APP=Safari REFRESH="Refresh" ACTION="Open link" N=3 ./loop.sh
 set -u
-cd "${0:a:h}"; [[ -x ./axmd ]] || swiftc -O axmd.swift -o axmd || exit 1
+cd "${0:a:h}"; [[ -x ./axmd ]] || swiftc -module-cache-path "${TMPDIR:-/tmp}/axmd-module-cache" -O axmd.swift -o axmd || exit 1
 APP=${APP:-Safari} REFRESH=${REFRESH:?label to press first} ACTION=${ACTION:?label to press second}
 N=${N:-3} LOG=${LOG:-axmd_loop.md} WAIT=${WAIT:-6}
 idx() { ./axmd "$APP" --grep "\"$1\"" | head -1 | cut -d' ' -f1 | grep -E '^[0-9]+$'; }
