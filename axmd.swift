@@ -1,14 +1,14 @@
-// axmd: token-minimal macOS accessibility snapshot + actions (Codex-CUA style refs).
+// axmd: compact macOS accessibility tree snapshot & headless action CLI.
 //
 // Build:  swiftc -O axmd.swift -o axmd
 //
-// Output: one flat line per node:  <idx> <role> "label" =value [flags] <url>
+// Output: <idx> <role> "label" =value [flags] <url>
 //   roles: b=button l=link t=textfield c=checkbox r=radio p=popup m=menuitem
 //          s=slider tab=tab h=heading x=text dlg=dialog
 //
 // Usage:  axmd <app> [opts]                    snapshot
-//         axmd <app> [opts] --diff             only +/- vs previous snapshot (same app+root)
-//         axmd <app> [opts] --press <idx>      AXPress element idx (headless, no mouse)
+//         axmd <app> [opts] --diff             only +/- vs previous snapshot
+//         axmd <app> [opts] --press <idx>      AXPress element idx (headless)
 //         axmd <app> [opts] --type <idx> <txt> set value of textfield idx
 // Opts:   --root <s>    start at first node whose role/subrole contains s (dialog, webarea, tabgroup)
 //         --window <s>  window title contains s (default focused)
@@ -21,10 +21,11 @@ import AppKit
 import ApplicationServices
 
 struct Opts { var target = "", window: String?, root: String?, grep: String?, max = 3000
-    var urls = false, text = false, tree = false, diff = false, press: Int?, typeIdx: Int?, typeStr = "" }
+    var urls = false, text = false, tree = false, diff = false, help = false, press: Int?, typeIdx: Int?, typeStr = "" }
 var o = Opts()
 do { var a = Array(CommandLine.arguments.dropFirst()); func n() -> String { a.isEmpty ? "" : a.removeFirst() }
     while !a.isEmpty { switch a.removeFirst() {
+        case "-h", "--help": o.help = true
         case "--window": o.window = n(); case "--root": o.root = n().lowercased(); case "--grep": o.grep = n().lowercased()
         case "--max": o.max = Int(n()) ?? 3000; case "--urls": o.urls = true; case "--text": o.text = true
         case "--tree": o.tree = true; case "--diff": o.diff = true; case "--press": o.press = Int(n())
@@ -54,7 +55,7 @@ let expandable: Set<String> = ["p", "c", "t", "tab"]
 struct Node { let el: AXUIElement; let line: String }
 var nodes = [Node](), visited = 0
 func walk(_ e: AXUIElement, _ depth: Int, _ parentLabel: String) {
-    if visited >= o.max { return }; visited += 1
+    if visited >= o.max || depth > 64 { return }; visited += 1
     let f = fetch(e)
     if (f[10] as? Bool) == true { return }
     let role = f[0] as? String ?? "", sub = f[1] as? String ?? ""
@@ -68,7 +69,7 @@ func walk(_ e: AXUIElement, _ depth: Int, _ parentLabel: String) {
     if label.isEmpty, code == "l" || code == "b" { label = childText(e) }
     if label.isEmpty, let s = f[5] as? String { label = cut(s, 40) }
     if code == "x" && (label.isEmpty || parentLabel.contains(label)) { code = nil }
-    if (code == "b" || code == "l") && label.isEmpty { code = nil }   // unlabeled icon junk
+    if (code == "b" || code == "l") && label.isEmpty { code = nil }
     var nextLabel = parentLabel
     if let c = code {
         var line = (o.tree ? String(repeating: " ", count: depth) : "") + c
@@ -106,8 +107,11 @@ func findRoot(_ s: AXUIElement, _ q: String) -> AXUIElement? {
 }
 
 // MARK: main
+if o.help || o.target.isEmpty {
+    fputs("usage: axmd <app> [--root s] [--window s] [--text] [--grep s] [--urls] [--tree] [--diff] [--press i] [--type i txt]\n", stderr)
+    exit(o.help ? 0 : 2)
+}
 guard AXIsProcessTrusted() else { fputs("grant Accessibility to the host app (System Settings > Privacy & Security > Accessibility)\n", stderr); exit(1) }
-guard !o.target.isEmpty else { fputs("usage: axmd <app> [--root s] [--window s] [--text] [--grep s] [--urls] [--tree] [--diff] [--press i] [--type i txt]\n", stderr); exit(2) }
 let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
 let t = o.target.lowercased()
 guard let app = Int32(o.target).flatMap({ p in apps.first { $0.processIdentifier == p } })
@@ -115,7 +119,8 @@ guard let app = Int32(o.target).flatMap({ p in apps.first { $0.processIdentifier
     ?? apps.first(where: { $0.localizedName?.lowercased().contains(t) == true }) else { fputs("app not found\n", stderr); exit(3) }
 let appEl = AXUIElementCreateApplication(app.processIdentifier)
 AXUIElementSetMessagingTimeout(appEl, 2)
-if AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue) == .success { usleep(150_000) }
+if (attr(appEl, "AXManualAccessibility") as? Bool) != true,
+   AXUIElementSetAttributeValue(appEl, "AXManualAccessibility" as CFString, kCFBooleanTrue) == .success { usleep(150_000) }
 let wins = (attr(appEl, "AXWindows") as? [AXUIElement]) ?? []
 func asEl(_ v: CFTypeRef?) -> AXUIElement? { v.flatMap { CFGetTypeID($0) == AXUIElementGetTypeID() ? ($0 as! AXUIElement) : nil } }
 let win = o.window.flatMap { w in wins.first { ((attr($0, "AXTitle") as? String) ?? "").lowercased().contains(w.lowercased()) } }
@@ -124,7 +129,6 @@ guard let win else { fputs("no window\n", stderr); exit(4) }
 var lastHost: String? = nil
 var root = win
 if let q = o.root { guard let r = findRoot(win, q) else { fputs("no '\(q)' in window\n", stderr); exit(5) }; root = r }
-// host of the page for relative-url shortening
 if o.urls, let wa = findRoot(win, "axwebarea"), let u = attr(wa, "AXURL") as? URL { lastHost = u.host }
 walk(root, 0, "")
 
@@ -135,20 +139,22 @@ if let i = o.press ?? o.typeIdx {
     if o.typeIdx != nil {
         AXUIElementSetAttributeValue(e, "AXFocused" as CFString, kCFBooleanTrue)
         let r = AXUIElementSetAttributeValue(e, "AXValue" as CFString, o.typeStr as CFString)
-        print(r == .success ? "typed \(i)" : "type failed \(r.rawValue)")
+        guard r == .success else { fputs("type failed (\(r.rawValue))\n", stderr); exit(7) }
+        print("typed \(i)")
     } else {
         var r = AXUIElementPerformAction(e, "AXPress" as CFString)
         if r != .success { r = AXUIElementPerformAction(e, "AXConfirm" as CFString) }
-        print(r == .success ? "pressed \(i): \(nodes[i].line)" : "press failed \(r.rawValue)")
+        guard r == .success else { fputs("press failed (\(r.rawValue))\n", stderr); exit(7) }
+        print("pressed \(i): \(nodes[i].line)")
     }
     exit(0)
 }
 
 var lines = nodes.enumerated().map { "\($0.offset) \($0.element.line)" }
 if let g = o.grep { lines = lines.filter { $0.lowercased().contains(g) } }
-let cache = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("axmd-\(app.processIdentifier)-\(o.root ?? "win").txt")
+let scope = [o.root ?? "win", o.window ?? "", o.text ? "txt" : "int"].joined(separator: "-")
+let cache = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("axmd-\(app.processIdentifier)-\(scope).txt")
 if o.diff, let prev = try? String(contentsOf: cache, encoding: .utf8) {
-    // compare without index so insertions don't mark everything changed
     func key(_ s: String) -> String { String(s.drop(while: { $0 != " " }).dropFirst()) }
     let old = Set(prev.split(separator: "\n").map { key(String($0)) }), new = Set(lines.map(key))
     let add = lines.filter { !old.contains(key($0)) }
