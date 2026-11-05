@@ -5,6 +5,7 @@
 <br/>
 
 [![CI & Release](https://github.com/elix1er/axmd/actions/workflows/ci.yml/badge.svg)](https://github.com/elix1er/axmd/actions/workflows/ci.yml)
+[![Homebrew](https://img.shields.io/badge/homebrew-elix1er%2Ftap%2Faxmd-FBB040?style=flat-square&logo=homebrew&logoColor=white)](#install)
 [![Swift 5.9+](https://img.shields.io/badge/Swift-5.9%2B-F05138?style=flat-square&logo=swift&logoColor=white)](axmd.swift)
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white)](axmd.swift)
 [![License: MIT](https://img.shields.io/badge/license-MIT-4ade80?style=flat-square)](LICENSE)
@@ -49,7 +50,15 @@ Screenshot loops cost **1,500+ tokens per frame**, add 1–3s of vision latency 
 - **Helper Process Filtering (`activationPolicy == .regular`):** Ignores renderer/GPU helper processes so app lookup by name never collides.
 - **Shift-Resilient Diffs (`--diff`):** Caches the last snapshot per `<pid>-<root>-<window>-<mode>` and strips leading indices before diffing, so an inserted banner emits `+ 1 line` instead of invalidating every index below it.
 
-## Build & Install
+## Install
+
+### Homebrew (macOS Universal)
+
+```bash
+brew install elix1er/tap/axmd
+```
+
+### Build from Source
 
 ```bash
 make            # swiftc -O axmd.swift -o axmd
@@ -57,7 +66,7 @@ make universal  # fat binary (arm64 + x86_64) via lipo
 make install    # copies to /usr/local/bin/axmd
 ```
 
-Or grab the universal binary from [Releases](https://github.com/elix1er/axmd/releases).
+Or download the prebuilt universal binary from [Releases](https://github.com/elix1er/axmd/releases).
 
 > **Permission:** Grant **Accessibility** to your terminal or agent host in **System Settings › Privacy & Security › Accessibility**.
 
