@@ -1,1 +1,20 @@
+# Compiled binaries
 axmd
+axmd-arm64
+axmd-x86_64
+skills/axmd-computer-use/scripts/axmd
+
+# Release & build artifacts
+dist/
+*.tar.gz
+*.sha256
+*.dSYM/
+
+# Runtime logs & locks
+axmd_loop.md
+*.log
+
+# macOS & editor
+.DS_Store
+.swiftpm/
+.build/
